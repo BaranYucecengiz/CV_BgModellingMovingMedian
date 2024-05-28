@@ -1,0 +1,23 @@
+# Derleme dosyaları
+/build/
+/bin/
+/lib/
+
+# CMake dosyaları
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# IDE geçici dosyaları
+.vscode/
+.idea/
+*.swp
+
+# Diğer geçici dosyalar
+*.tmp
+*.log
+*.obj
+*.o
+*.exe
+*.out

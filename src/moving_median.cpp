@@ -4,9 +4,8 @@
 #include <vector>
 #include <algorithm>
 #include <omp.h>
-#include <immintrin.h>
 
-void find_median(std::vector<uchar>& pixels, int num_frames, uchar& median) {
+inline void find_median(std::vector<uchar>& pixels, int num_frames, uchar& median) {
     std::nth_element(pixels.begin(), pixels.begin() + num_frames / 2, pixels.end());
     median = pixels[num_frames / 2];
 }
@@ -17,12 +16,16 @@ cv::Mat calculate_median_background(const std::deque<cv::Mat>& frames) {
     int num_frames = frames.size();
     cv::Mat median_background(rows, cols, CV_8UC1);
 
+
+    std::vector<uchar> pixels(num_frames);
     #pragma omp parallel for collapse(2)
     for (int row = 0; row < rows; ++row) {
         for (int col = 0; col < cols; ++col) {
-            std::vector<uchar> pixels(num_frames);
-            for (int j = 0; j < num_frames; ++j) {
-                pixels[j] = frames[j].at<uchar>(row, col);
+            pixels.clear();
+            pixels.resize(num_frames);
+            size_t i = 0;
+            for(auto const &frame : frames){
+                pixels[i++] = frame.at<uchar>(row, col);
             }
             uchar median;
             find_median(pixels, num_frames, median);
@@ -54,16 +57,21 @@ int main() {
         }
 
         cv::cvtColor(frame, gray_frame, cv::COLOR_BGR2GRAY);
-        frame_queue.push_back(gray_frame.clone());
+        frame_queue.push_back(std::move(gray_frame));
         if (frame_queue.size() > max_frames) {
             frame_queue.pop_front();
         }
 
         if (frame_queue.size() == max_frames) {
+            auto start = std::chrono::high_resolution_clock::now();
             cv::Mat median_background = calculate_median_background(frame_queue);
+            auto end = std::chrono::high_resolution_clock::now();
+
+            std::chrono::duration<double> elapsed = end - start;
+            std::cout << "Frame hesaplama süresi: " << elapsed.count() << " saniye" << std::endl;
 
             cv::Mat foreground_mask;
-            cv::absdiff(gray_frame, median_background, foreground_mask);
+            cv::absdiff(frame_queue.back(), median_background, foreground_mask);
             cv::threshold(foreground_mask, foreground_mask, 30, 255, cv::THRESH_BINARY);
 
             cv::imshow("Original Frame", frame);
@@ -71,11 +79,10 @@ int main() {
             cv::imshow("Foreground Mask", foreground_mask);
         }
 
-        if (cv::waitKey(30) == 27) {
+        if (cv::waitKey(1) == 27) {
             break;
         }
     }
-
     cap.release();
     cv::destroyAllWindows();
 
